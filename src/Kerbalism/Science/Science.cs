@@ -164,7 +164,10 @@ namespace KERBALISM
 				if (xmitScienceValue > 0.0)
 				{
 					// add science to the subject (and eventually included subjects), trigger completion events, credit the science, return how much has been credited.
-					vd.scienceTransmitted += xmitFile.file.subjectData.RetrieveScience(xmitScienceValue, true, v.protoVessel, xmitFile.file);
+					double credited = xmitFile.file.subjectData.RetrieveScience(xmitScienceValue, true, v.protoVessel, xmitFile.file);
+					vd.scienceTransmitted += credited;
+					if (credited > 0.0)
+						vd.lastScienceTransmittedUT = Planetarium.GetUniversalTime();
 				}
 			}
 

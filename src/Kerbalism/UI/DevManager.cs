@@ -1,4 +1,5 @@
 using KSP.Localization;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
@@ -29,8 +30,11 @@ namespace KERBALISM
 			p.Width(Styles.ScaleWidthFloat(355.0f));
 			p.paneltype = Panel.PanelType.scripts;
 
-			// time-out simulation
-			if (!Lib.IsControlUnit(v) && p.Timeout(vd)) return;
+			// when there's no comm link (and no crew/EVA), show a "no connection" header
+			// but still render the device list so the player can see device status
+			// (e.g. how much science each experiment has collected) without signal.
+			bool offline = !Lib.IsControlUnit(v) && !vd.Connection.linked && vd.CrewCount == 0 && !v.isEVA;
+			if (offline) p.Timeout(vd);
 
 			// get devices
 			List<Device> devices = Computer.GetModuleDevices(v);
@@ -79,13 +83,17 @@ namespace KERBALISM
 						}
 					}
 
+					// disable control actions when offline — view-only.
+					Action toggleAction = offline ? null : (Action)dev.Toggle;
+					Action iconClick = offline ? null : dev.Icon?.onClick;
+
 					if (dev.PartId != 0u)
-						p.AddContent(dev.DisplayName, dev.Status, dev.Tooltip, dev.Toggle, () => Highlighter.Set(dev.PartId, Color.cyan));
+						p.AddContent(dev.DisplayName, dev.Status, dev.Tooltip, toggleAction, () => Highlighter.Set(dev.PartId, Color.cyan));
 					else
-						p.AddContent(dev.DisplayName, dev.Status, dev.Tooltip, dev.Toggle);
+						p.AddContent(dev.DisplayName, dev.Status, dev.Tooltip, toggleAction);
 
 					if (dev.Icon != null)
-						p.SetLeftIcon(dev.Icon.texture, dev.Icon.tooltip, dev.Icon.onClick);
+						p.SetLeftIcon(dev.Icon.texture, dev.Icon.tooltip, iconClick);
 
 					deviceCount++;
 				}
@@ -144,21 +152,24 @@ namespace KERBALISM
 						}
 					}
 
+					// disable script editing when offline — view-only.
+					Action editAction = offline ? null : (Action)(() =>
+					{
+						switch (state)
+						{
+							case -1: script.Set(dev, true); break;
+							case 0: script.Set(dev, null); break;
+							case 1: script.Set(dev, false); break;
+						}
+					});
+
 					// render device entry
 					p.AddContent
 					(
 					  dev.DisplayName,
 					  state == -1 ? Lib.Color(Local.UI_dontcare, Lib.Kolor.DarkGrey) : Lib.Color(state == 0, Local.Generic_OFF, Lib.Kolor.Yellow, Local.Generic_ON, Lib.Kolor.Green),
 					  string.Empty,
-					  () =>
-					  {
-						  switch (state)
-						  {
-							  case -1: script.Set(dev, true); break;
-							  case 0: script.Set(dev, null); break;
-							  case 1: script.Set(dev, false); break;
-						  }
-					  },
+					  editAction,
 					  () => Highlighter.Set(dev.PartId, Color.cyan)
 					);
 					deviceCount++;

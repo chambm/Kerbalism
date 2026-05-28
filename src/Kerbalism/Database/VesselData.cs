@@ -88,6 +88,7 @@ namespace KERBALISM
 		private Dictionary<string, SupplyData> supplies; // supplies data
 		public List<uint> scansat_id; // used to remember scansat sensors that were disabled
 		public double scienceTransmitted;
+		public double lastScienceTransmittedUT = -1.0; // UT of most recent science transmission, -1 if never
 
 		public Dictionary<Process, DumpSpecs.ActiveValve> dumpValves;
 
@@ -819,6 +820,7 @@ namespace KERBALISM
 			deviceTransmit = Lib.ConfigValue(node, "deviceTransmit", true);
 
 			scienceTransmitted = Lib.ConfigValue(node, "scienceTransmitted", 0.0);
+			lastScienceTransmittedUT = Lib.ConfigValue(node, "lastScienceTransmittedUT", -1.0);
 
 			vesselSurfaceArea = Lib.ConfigValue(node, "vesselSurfaceArea", -1.0);
 			vesselSolarCrossSection = Lib.ConfigValue(node, "vesselSolarCrossSection", -1.0);
@@ -899,6 +901,7 @@ namespace KERBALISM
 			node.AddValue("deviceTransmit", deviceTransmit);
 
 			node.AddValue("scienceTransmitted", scienceTransmitted);
+			node.AddValue("lastScienceTransmittedUT", lastScienceTransmittedUT);
 
 			node.AddValue("vesselSurfaceArea", vesselSurfaceArea);
 			node.AddValue("vesselSolarCrossSection", vesselSolarCrossSection);

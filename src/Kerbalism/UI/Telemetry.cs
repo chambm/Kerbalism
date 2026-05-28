@@ -10,6 +10,9 @@ namespace KERBALISM
 
 	public static class Telemetry
 	{
+		// shown in place of values that require an active comm link
+		const string OfflineValue = "???";
+
 		public static void TelemetryPanel(this Panel p, Vessel v)
 		{
 			// avoid corner-case when this is called in a lambda after scene changes
@@ -29,8 +32,11 @@ namespace KERBALISM
 			p.Width(Styles.ScaleWidthFloat(355.0f));
 			p.paneltype = Panel.PanelType.telemetry;
 
-			// time-out simulation
-			if (p.Timeout(vd)) return;
+			// determine offline state (matches TimedOut.Timeout condition).
+			// when offline, still show the "Connection in progress / timed-out" header,
+			// but always render sections — live values are shown as ??? below.
+			bool offline = !vd.Connection.linked && vd.CrewCount == 0 && !v.isEVA;
+			if (offline) p.Timeout(vd);
 
 			// get resources
 			VesselResources resources = ResourceCache.Get(v);
@@ -39,19 +45,19 @@ namespace KERBALISM
 			var crew = Lib.CrewList(v);
 
 			// draw the content
-			Render_crew(p, crew);
-			if (Features.Science) Render_science(p, v, vd);
-			Render_greenhouse(p, vd);
-			Render_supplies(p, v, vd, resources);
-			Render_habitat(p, v, vd);
-			Render_environment(p, v, vd);
+			Render_crew(p, crew, offline);
+			if (Features.Science) Render_science(p, v, vd, offline);
+			Render_greenhouse(p, vd, offline);
+			Render_supplies(p, v, vd, resources, offline);
+			Render_habitat(p, v, vd, offline);
+			Render_environment(p, v, vd, offline);
 
 			// collapse eva kerbal sections into one
 			if (v.isEVA) p.Collapse(Local.TELEMETRY_EVASUIT);//"EVA SUIT"
 		}
 
 
-		static void Render_environment(Panel p, Vessel v, VesselData vd)
+		static void Render_environment(Panel p, Vessel v, VesselData vd, bool offline)
 		{
 			// don't show env panel in eva kerbals
 			if (v.isEVA) return;
@@ -79,12 +85,15 @@ namespace KERBALISM
 
 			foreach (string type in readings)
 			{
-				p.AddContent(Sensor.DisplayName(type), Sensor.Telemetry_content(v, vd, type), Sensor.Telemetry_tooltip(v, vd, type));
+				if (offline)
+					p.AddContent(Sensor.DisplayName(type), OfflineValue);
+				else
+					p.AddContent(Sensor.DisplayName(type), Sensor.Telemetry_content(v, vd, type), Sensor.Telemetry_tooltip(v, vd, type));
 			}
 			if (readings.Count == 0) p.AddContent("<i>"+Local.TELEMETRY_nosensorsinstalled +"</i>");//no sensors installed
 		}
 
-		static void Render_habitat(Panel p, Vessel v, VesselData vd)
+		static void Render_habitat(Panel p, Vessel v, VesselData vd, bool offline)
 		{
 			// if habitat feature is disabled, do not show the panel
 			if (!Features.Habitat) return;
@@ -94,29 +103,40 @@ namespace KERBALISM
 
 			// render panel, add some content based on enabled features
 			p.AddSection(Local.TELEMETRY_HABITAT);//"HABITAT"
-			if (Features.Poisoning) p.AddContent(Local.TELEMETRY_co2level, Lib.Color(vd.Poisoning > Settings.PoisoningThreshold, Lib.HumanReadablePerc(vd.Poisoning, "F2"), Lib.Kolor.Yellow));//"co2 level"
-			if (Features.Radiation && v.isEVA) p.AddContent(Local.TELEMETRY_radiation, Lib.HumanReadableRadiation(vd.EnvHabitatRadiation));//"radiation"
+			if (Features.Poisoning) p.AddContent(Local.TELEMETRY_co2level, offline ? OfflineValue : Lib.Color(vd.Poisoning > Settings.PoisoningThreshold, Lib.HumanReadablePerc(vd.Poisoning, "F2"), Lib.Kolor.Yellow));//"co2 level"
+			if (Features.Radiation && v.isEVA) p.AddContent(Local.TELEMETRY_radiation, offline ? OfflineValue : Lib.HumanReadableRadiation(vd.EnvHabitatRadiation));//"radiation"
 
 			if (!v.isEVA)
 			{
-				if (Features.Pressure) p.AddContent(Local.TELEMETRY_pressure, Lib.HumanReadableNormalizedPressure(vd.Pressure));//"pressure"
-				if (Features.Shielding) p.AddContent(Local.TELEMETRY_shielding, Lib.HumanReadableShieldingLevel(vd.Shielding));//"shielding"
-				if (Features.LivingSpace) p.AddContent(Local.TELEMETRY_livingspace, Lib.HumanReadableLivingSpace(vd.LivingSpace));//"living space"
-				if (Features.Comfort) p.AddContent(Local.TELEMETRY_comfort, vd.Comforts.Summary(), vd.Comforts.Tooltip());//"comfort"
+				if (Features.Pressure) p.AddContent(Local.TELEMETRY_pressure, offline ? OfflineValue : Lib.HumanReadableNormalizedPressure(vd.Pressure));//"pressure"
+				if (Features.Shielding) p.AddContent(Local.TELEMETRY_shielding, offline ? OfflineValue : Lib.HumanReadableShieldingLevel(vd.Shielding));//"shielding"
+				if (Features.LivingSpace) p.AddContent(Local.TELEMETRY_livingspace, offline ? OfflineValue : Lib.HumanReadableLivingSpace(vd.LivingSpace));//"living space"
+				if (Features.Comfort)
+				{
+					if (offline)
+						p.AddContent(Local.TELEMETRY_comfort, OfflineValue);
+					else
+						p.AddContent(Local.TELEMETRY_comfort, vd.Comforts.Summary(), vd.Comforts.Tooltip());//"comfort"
+				}
 				if (Features.Pressure && Settings.LifeSupportAtmoLoss > 0)
-					p.AddContent(Local.TELEMETRY_EVAStatus, vd.Evas > 1 ? Local.TELEMETRY_EVAStatus1 : Local.TELEMETRY_EVAStatus2, null); // "EVA Status" / "safe" / "risky"
+					p.AddContent(Local.TELEMETRY_EVAStatus, offline ? OfflineValue : (vd.Evas > 1 ? Local.TELEMETRY_EVAStatus1 : Local.TELEMETRY_EVAStatus2), null); // "EVA Status" / "safe" / "risky"
 			}
 		}
 
-		static void Render_science(Panel p, Vessel v, VesselData vd)
+		static void Render_science(Panel p, Vessel v, VesselData vd, bool offline)
 		{
-			// don't show env panel in eva kerbals
+			// don't show science panel in eva kerbals
 			if (v.isEVA) return;
 
 			p.AddSection(Local.TELEMETRY_TRANSMISSION);//"TRANSMISSION"
 
-			// comm status
-			if (vd.filesTransmitted.Count > 0)
+			// live transmission state: hidden behind comm link
+			if (offline)
+			{
+				p.AddContent(Local.TELEMETRY_maxtransmissionrate, OfflineValue);
+				p.AddContent(Local.TELEMETRY_target, OfflineValue);
+			}
+			else if (vd.filesTransmitted.Count > 0)
 			{
 				double transmitRate = 0.0;
 				StringBuilder tooltip = new StringBuilder();
@@ -127,21 +147,34 @@ namespace KERBALISM
 					tooltip.Append(string.Format("{0,-15}\t{1}", Lib.HumanReadableDataRate(vd.filesTransmitted[i].transmitRate), Lib.Ellipsis(vd.filesTransmitted[i].subjectData.FullTitle, 40u)));
 					if (i < vd.filesTransmitted.Count - 1) tooltip.Append("\n");
 				}
-				
+
 				p.AddContent(Local.TELEMETRY_transmitting, Lib.BuildString(vd.filesTransmitted.Count.ToString(), vd.filesTransmitted.Count > 1 ? " files at " : " file at ",  Lib.HumanReadableDataRate(transmitRate)), tooltip.ToString());//"transmitting"
+				p.AddContent(Local.TELEMETRY_target, vd.Connection.target_name);//"target"
 			}
 			else
 			{
 				p.AddContent(Local.TELEMETRY_maxtransmissionrate, Lib.HumanReadableDataRate(vd.Connection.rate));//"max transmission rate"
+				p.AddContent(Local.TELEMETRY_target, vd.Connection.target_name);//"target"
 			}
 
-			p.AddContent(Local.TELEMETRY_target, vd.Connection.target_name);//"target"
-
-			// total science gained by vessel
+			// total science gained by vessel (always shown, even offline)
 			p.AddContent(Local.TELEMETRY_totalsciencetransmitted, Lib.HumanReadableScience(vd.scienceTransmitted, false));//"total science transmitted"
+
+			// time since last science transmission (always shown, even offline)
+			string lastXmit;
+			if (vd.lastScienceTransmittedUT < 0.0)
+			{
+				lastXmit = Local.Generic_NEVER;
+			}
+			else
+			{
+				double dt = Planetarium.GetUniversalTime() - vd.lastScienceTransmittedUT;
+				lastXmit = dt <= 0.0 ? Local.TELEMETRY_nochange : Lib.HumanReadableDuration(dt);
+			}
+			p.AddContent("last science transmitted", lastXmit);
 		}
 
-		static void Render_supplies(Panel p, Vessel v, VesselData vd, VesselResources resources)
+		static void Render_supplies(Panel p, Vessel v, VesselData vd, VesselResources resources, bool offline)
 		{
 			int supplies = 0;
 			// for each supply
@@ -160,8 +193,15 @@ namespace KERBALISM
 				var resource = PartResourceLibrary.Instance.resourceDefinitions[supply.resource];
 				string label = Lib.SpacesOnCaps(resource.displayName).ToLower();
 
+				if (offline)
+				{
+					p.AddContent(label, OfflineValue);
+					++supplies;
+					continue;
+				}
+
 				StringBuilder sb = new StringBuilder();
-				
+
 				sb.Append("<align=left />");
 				if (res.AverageRate != 0.0)
 				{
@@ -210,7 +250,7 @@ namespace KERBALISM
 						sb.Append(Lib.Color(rb.rate > 0.0,
 							Lib.BuildString("+", Lib.HumanOrSIRate(Math.Abs(rb.rate), resource.id), "   "), Lib.Kolor.PosRate, // spaces to mitigate alignement issues
 							Lib.BuildString("-", Lib.HumanOrSIRate(Math.Abs(rb.rate), resource.id), "   "), Lib.Kolor.NegRate, // spaces to mitigate alignement issues
-							true)); 
+							true));
 						sb.Append("\t");
 						sb.Append(rb.broker.Title);
 					}
@@ -225,7 +265,7 @@ namespace KERBALISM
 		}
 
 
-		static void Render_crew(Panel p, List<ProtoCrewMember> crew)
+		static void Render_crew(Panel p, List<ProtoCrewMember> crew, bool offline)
 		{
 			// do nothing if there isn't a crew, or if there are no rules
 			if (crew.Count == 0 || Profile.rules.Count == 0) return;
@@ -238,6 +278,16 @@ namespace KERBALISM
 			{
 				// get kerbal data from DB
 				KerbalData kd = DB.Kerbal(kerbal.name);
+
+				// generate kerbal name
+				string name = kerbal.name.ToLower().Replace(" kerman", string.Empty);
+
+				if (offline)
+				{
+					// vitals require live telemetry; render row but hide health/stress
+					p.AddContent(Lib.Ellipsis(name, Styles.ScaleStringLength(30)), OfflineValue);
+					continue;
+				}
 
 				// analyze issues
 				UInt32 health_severity = 0;
@@ -267,9 +317,6 @@ namespace KERBALISM
 				}
 				string tooltip = Lib.BuildString("<align=left />", String.Join("\n", tooltips.ToArray()));
 
-				// generate kerbal name
-				string name = kerbal.name.ToLower().Replace(" kerman", string.Empty);
-
 				// render selectable title
 				p.AddContent(Lib.Ellipsis(name, Styles.ScaleStringLength(30)), kd.disabled ? Lib.Color(Local.TELEMETRY_HYBERNATED, Lib.Kolor.Cyan) : string.Empty);//"HYBERNATED"
 				p.AddRightIcon(health_severity == 0 ? Textures.health_white : health_severity == 1 ? Textures.health_yellow : Textures.health_red, tooltip);
@@ -277,7 +324,7 @@ namespace KERBALISM
 			}
 		}
 
-		static void Render_greenhouse(Panel p, VesselData vd)
+		static void Render_greenhouse(Panel p, VesselData vd, bool offline)
 		{
 			// do nothing without greenhouses
 			if (vd.Greenhouses.Count == 0) return;
@@ -289,6 +336,14 @@ namespace KERBALISM
 			for (int i = 0; i < vd.Greenhouses.Count; ++i)
 			{
 				var greenhouse = vd.Greenhouses[i];
+
+				string label = Lib.BuildString(Local.TELEMETRY_crop, " #", (i + 1).ToString());
+
+				if (offline)
+				{
+					p.AddContent(label, OfflineValue);
+					continue;
+				}
 
 				// state string
 				string state = greenhouse.issue.Length > 0
@@ -308,7 +363,7 @@ namespace KERBALISM
 				) : string.Empty;
 
 				// render it
-				p.AddContent(Lib.BuildString(Local.TELEMETRY_crop, " #", (i + 1).ToString()), state, tooltip);//"crop"
+				p.AddContent(label, state, tooltip);//"crop"
 
 				// issues too, why not
 				p.AddRightIcon(greenhouse.issue.Length == 0 ? Textures.plant_white : Textures.plant_yellow, tooltip);
