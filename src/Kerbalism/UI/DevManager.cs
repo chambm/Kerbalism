@@ -1,6 +1,7 @@
 using KSP.Localization;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using System.Linq;
 
@@ -83,14 +84,17 @@ namespace KERBALISM
 						}
 					}
 
-					// disable control actions when offline — view-only.
+					// disable control actions when offline — view-only — and render the
+					// row's label + status in dark grey to signal the data is stale.
 					Action toggleAction = offline ? null : (Action)dev.Toggle;
 					Action iconClick = offline ? null : dev.Icon?.onClick;
+					string displayName = offline ? Stale(dev.DisplayName) : dev.DisplayName;
+					string status = offline ? Stale(dev.Status) : dev.Status;
 
 					if (dev.PartId != 0u)
-						p.AddContent(dev.DisplayName, dev.Status, dev.Tooltip, toggleAction, () => Highlighter.Set(dev.PartId, Color.cyan));
+						p.AddContent(displayName, status, dev.Tooltip, toggleAction, () => Highlighter.Set(dev.PartId, Color.cyan));
 					else
-						p.AddContent(dev.DisplayName, dev.Status, dev.Tooltip, toggleAction);
+						p.AddContent(displayName, status, dev.Tooltip, toggleAction);
 
 					if (dev.Icon != null)
 						p.SetLeftIcon(dev.Icon.texture, dev.Icon.tooltip, iconClick);
@@ -152,7 +156,8 @@ namespace KERBALISM
 						}
 					}
 
-					// disable script editing when offline — view-only.
+					// disable script editing when offline — view-only — and grey the row out
+					// to signal the script state can't be changed without a comm link.
 					Action editAction = offline ? null : (Action)(() =>
 					{
 						switch (state)
@@ -163,11 +168,17 @@ namespace KERBALISM
 						}
 					});
 
+					string stateValue = state == -1
+						? Lib.Color(Local.UI_dontcare, Lib.Kolor.DarkGrey)
+						: Lib.Color(state == 0, Local.Generic_OFF, Lib.Kolor.Yellow, Local.Generic_ON, Lib.Kolor.Green);
+					string displayName = offline ? Stale(dev.DisplayName) : dev.DisplayName;
+					if (offline) stateValue = Stale(stateValue);
+
 					// render device entry
 					p.AddContent
 					(
-					  dev.DisplayName,
-					  state == -1 ? Lib.Color(Local.UI_dontcare, Lib.Kolor.DarkGrey) : Lib.Color(state == 0, Local.Generic_OFF, Lib.Kolor.Yellow, Local.Generic_ON, Lib.Kolor.Green),
+					  displayName,
+					  stateValue,
 					  string.Empty,
 					  editAction,
 					  () => Highlighter.Set(dev.PartId, Color.cyan)
@@ -244,6 +255,17 @@ namespace KERBALISM
 
 		// mode/script index
 		static int script_index;
+
+		static readonly Regex ColorTagRegex = new Regex(@"</?color[^>]*>", RegexOptions.Compiled);
+
+		// strip any embedded <color> tags and wrap the result in dark grey, so a stale
+		// (offline) status renders uniformly greyed even when the device's Status string
+		// already contains its own colour (e.g. green ON / yellow OFF).
+		static string Stale(string s)
+		{
+			if (string.IsNullOrEmpty(s)) return s;
+			return Lib.Color(ColorTagRegex.Replace(s, string.Empty), Lib.Kolor.DarkGrey);
+		}
 	}
 
 
