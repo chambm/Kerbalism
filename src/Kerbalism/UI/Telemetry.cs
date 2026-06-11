@@ -160,16 +160,25 @@ namespace KERBALISM
 			// total science gained by vessel (always shown, even offline)
 			p.AddContent(Local.TELEMETRY_totalsciencetransmitted, Lib.HumanReadableScience(vd.scienceTransmitted, false));//"total science transmitted"
 
-			// time since last science transmission (always shown, even offline)
+			// time since last science transmission (always shown, even offline).
+			// - lastUT < 0 + no science ever recorded -> "never"
+			// - lastUT < 0 + science from a pre-upgrade save -> "unknown" (we know data was
+			//   transmitted at some point but didn't record when)
+			// - currently transmitting -> "now"
+			// - otherwise -> human-readable duration since the last stamp
 			string lastXmit;
 			if (vd.lastScienceTransmittedUT < 0.0)
 			{
-				lastXmit = Local.Generic_NEVER;
+				lastXmit = vd.scienceTransmitted > 0.0 ? "unknown" : Local.Generic_NEVER;
+			}
+			else if (!offline && vd.filesTransmitted.Count > 0)
+			{
+				lastXmit = "now";
 			}
 			else
 			{
 				double dt = Planetarium.GetUniversalTime() - vd.lastScienceTransmittedUT;
-				lastXmit = dt <= 0.0 ? Local.TELEMETRY_nochange : Lib.HumanReadableDuration(dt);
+				lastXmit = dt < 1.0 ? "now" : Lib.HumanReadableDuration(dt);
 			}
 			p.AddContent("last science transmitted", lastXmit);
 		}

@@ -164,10 +164,12 @@ namespace KERBALISM
 				if (xmitScienceValue > 0.0)
 				{
 					// add science to the subject (and eventually included subjects), trigger completion events, credit the science, return how much has been credited.
-					double credited = xmitFile.file.subjectData.RetrieveScience(xmitScienceValue, true, v.protoVessel, xmitFile.file);
-					vd.scienceTransmitted += credited;
-					if (credited > 0.0)
-						vd.lastScienceTransmittedUT = Planetarium.GetUniversalTime();
+					vd.scienceTransmitted += xmitFile.file.subjectData.RetrieveScience(xmitScienceValue, true, v.protoVessel, xmitFile.file);
+
+					// stamp last-transmitted UT whenever data with science potential is moving — even
+					// when the subject was already fully retrieved at KSC (credited == 0) — because
+					// from the player's POV the vessel is still transmitting science data.
+					vd.lastScienceTransmittedUT = Planetarium.GetUniversalTime();
 				}
 			}
 
