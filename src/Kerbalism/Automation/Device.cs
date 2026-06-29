@@ -73,10 +73,10 @@ namespace KERBALISM
 
 		public virtual bool IsVisible => true;
 
-		// experiments expose the subject they are currently collecting so the UI can
-		// display the progress of any "included" experiments (sub-experiments collected
-		// automatically alongside this one). null for devices that aren't experiments.
-		public virtual SubjectData ScienceSubject => null;
+		// experiments expose their ExperimentInfo so the UI can list any "included"
+		// experiments (sub-experiments collected automatically alongside this one).
+		// null for devices that aren't experiments.
+		public virtual ExperimentInfo ScienceExpInfo => null;
 
 		public virtual void OnUpdate() { }
 	}

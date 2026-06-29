@@ -106,40 +106,40 @@ namespace KERBALISM
 				// other "included" experiments alongside themselves (e.g. a level 3
 				// experiment includes levels 1 and 2). Those don't show up as their own
 				// module devices and can't be controlled independently, but players still
-				// want to track how much of each has been collected.
+				// want to see them and their progress. Listed from the experiment info (not
+				// the current subject) so the section shows in every situation.
 				bool hasIncludedSection = false;
 				HashSet<string> shownIncluded = new HashSet<string>();
-				Stack<SubjectData> includeChain = new Stack<SubjectData>();
+				Stack<ExperimentInfo> includeChain = new Stack<ExperimentInfo>();
 
-				// pre-seed with the subjects that already appear as their own module device,
-				// so an included experiment that is also present as a controllable device
-				// isn't listed twice.
+				// pre-seed with experiments that already appear as their own module device,
+				// so an included experiment that is also a controllable device isn't listed twice.
 				foreach (Device dev in devices)
 				{
-					SubjectData devSubject = dev.ScienceSubject;
-					if (devSubject != null) shownIncluded.Add(devSubject.Id);
+					ExperimentInfo devExpInfo = dev.ScienceExpInfo;
+					if (devExpInfo != null) shownIncluded.Add(devExpInfo.ExperimentId);
 				}
 
 				for (int i = devices.Count - 1; i >= 0; i--)
 				{
-					SubjectData subject = devices[i].ScienceSubject;
-					if (subject == null) continue;
+					ExperimentInfo expInfo = devices[i].ScienceExpInfo;
+					if (expInfo == null) continue;
 
 					// walk the whole include chain (a level 3 experiment includes level 2,
 					// which itself includes level 1) so every transitively-included
 					// experiment is listed, not just the direct children.
-					foreach (SubjectData included in subject.IncludedSubjects)
-						includeChain.Push(included);
+					foreach (ExperimentInfo inc in expInfo.IncludedExperiments)
+						includeChain.Push(inc);
 
 					while (includeChain.Count > 0)
 					{
-						SubjectData included = includeChain.Pop();
+						ExperimentInfo inc = includeChain.Pop();
 
-						// the same included subject can be reached from several experiments
+						// the same included experiment can be reached from several experiments
 						// (or already shown as a device) - only list it once.
-						if (!shownIncluded.Add(included.Id)) continue;
+						if (!shownIncluded.Add(inc.ExperimentId)) continue;
 
-						foreach (SubjectData deeper in included.IncludedSubjects)
+						foreach (ExperimentInfo deeper in inc.IncludedExperiments)
 							includeChain.Push(deeper);
 
 						if (!hasIncludedSection)
@@ -148,16 +148,31 @@ namespace KERBALISM
 							hasIncludedSection = true;
 						}
 
-						string label = Lib.EllipsisMiddle(included.ExperimentTitle, 28);
-						string value = Lib.BuildString(Experiment.ScienceValue(included), " ", included.PercentCollectedTotal.ToString("P0"));
-						if (offline)
+						// resolve the experiment's subject for the current vessel situation
+						// (null if it can't be run here, in which case ScienceValue shows "none",
+						// exactly like the device rows do in an invalid situation).
+						SubjectData incSubject = null;
+						try
 						{
-							label = Stale(label);
-							value = Stale(value);
+							Situation incSituation = vd.VesselSituations.GetExperimentSituation(inc);
+							incSubject = ScienceDB.GetSubjectData(inc, incSituation);
 						}
+						catch { /* situation not resolvable - leave subject null */ }
 
-						p.AddContent(label, value, included.FullTitle);
-						p.SetLeftIcon(included.ExpInfo.SampleMass > 0.0 ? Textures.sample_scicolor : Textures.file_scicolor, included.FullTitle);
+						// mirror the device row format : "<title>: <science>" on the left; the
+						// right column stays blank since there's nothing to enable/disable.
+						string label = Lib.BuildString(Lib.EllipsisMiddle(inc.Title, 28), ": ", Experiment.ScienceValue(incSubject));
+						if (offline) label = Stale(label);
+
+						string tooltip = incSubject != null ? incSubject.FullTitle : inc.Title;
+						p.AddContent(label, string.Empty, tooltip);
+
+						// clicking the icon opens the experiment info, like the device rows do
+						ExperimentInfo incForClick = inc;
+						p.SetLeftIcon(
+							inc.SampleMass > 0.0 ? Textures.sample_scicolor : Textures.file_scicolor,
+							Local.SCIENCEARCHIVE_showexperimentinfo,//"show experiment info"
+							() => ExperimentInfoPopup.Show(incForClick));
 					}
 				}
 			}

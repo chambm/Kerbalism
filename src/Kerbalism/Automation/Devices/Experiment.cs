@@ -102,7 +102,7 @@ namespace KERBALISM
 
 		public override DeviceIcon Icon => icon;
 
-		public override SubjectData ScienceSubject => module.Subject;
+		public override ExperimentInfo ScienceExpInfo => module.ExpInfo;
 
 		public override void Ctrl(bool value)
 		{
@@ -230,7 +230,7 @@ namespace KERBALISM
 
 		public override DeviceIcon Icon => icon;
 
-		public override SubjectData ScienceSubject => subject;
+		public override ExperimentInfo ScienceExpInfo => expInfo;
 
 		public override void Ctrl(bool value)
 		{
