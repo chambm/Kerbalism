@@ -103,22 +103,44 @@ namespace KERBALISM
 				}
 
 				// included experiments section: some experiments automatically collect
-				// other "included" experiments alongside themselves (e.g. a level 3 sample
-				// includes levels 1 and 2). Those don't show up as their own module devices
-				// and can't be controlled independently, but players still want to track
-				// how much of each has been collected.
+				// other "included" experiments alongside themselves (e.g. a level 3
+				// experiment includes levels 1 and 2). Those don't show up as their own
+				// module devices and can't be controlled independently, but players still
+				// want to track how much of each has been collected.
 				bool hasIncludedSection = false;
 				HashSet<string> shownIncluded = new HashSet<string>();
+				Stack<SubjectData> includeChain = new Stack<SubjectData>();
+
+				// pre-seed with the subjects that already appear as their own module device,
+				// so an included experiment that is also present as a controllable device
+				// isn't listed twice.
+				foreach (Device dev in devices)
+				{
+					SubjectData devSubject = dev.ScienceSubject;
+					if (devSubject != null) shownIncluded.Add(devSubject.Id);
+				}
+
 				for (int i = devices.Count - 1; i >= 0; i--)
 				{
 					SubjectData subject = devices[i].ScienceSubject;
 					if (subject == null) continue;
 
+					// walk the whole include chain (a level 3 experiment includes level 2,
+					// which itself includes level 1) so every transitively-included
+					// experiment is listed, not just the direct children.
 					foreach (SubjectData included in subject.IncludedSubjects)
+						includeChain.Push(included);
+
+					while (includeChain.Count > 0)
 					{
-						// the same included subject can be pulled in by several experiments
-						// (or several parts running the same experiment) - only list it once.
+						SubjectData included = includeChain.Pop();
+
+						// the same included subject can be reached from several experiments
+						// (or already shown as a device) - only list it once.
 						if (!shownIncluded.Add(included.Id)) continue;
+
+						foreach (SubjectData deeper in included.IncludedSubjects)
+							includeChain.Push(deeper);
 
 						if (!hasIncludedSection)
 						{
