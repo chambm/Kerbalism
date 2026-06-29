@@ -101,6 +101,43 @@ namespace KERBALISM
 
 					deviceCount++;
 				}
+
+				// included experiments section: some experiments automatically collect
+				// other "included" experiments alongside themselves (e.g. a level 3 sample
+				// includes levels 1 and 2). Those don't show up as their own module devices
+				// and can't be controlled independently, but players still want to track
+				// how much of each has been collected.
+				bool hasIncludedSection = false;
+				HashSet<string> shownIncluded = new HashSet<string>();
+				for (int i = devices.Count - 1; i >= 0; i--)
+				{
+					SubjectData subject = devices[i].ScienceSubject;
+					if (subject == null) continue;
+
+					foreach (SubjectData included in subject.IncludedSubjects)
+					{
+						// the same included subject can be pulled in by several experiments
+						// (or several parts running the same experiment) - only list it once.
+						if (!shownIncluded.Add(included.Id)) continue;
+
+						if (!hasIncludedSection)
+						{
+							p.AddSection(Local.DevManager_INCLUDEDEXPERIMENTS);//"INCLUDED EXPERIMENTS"
+							hasIncludedSection = true;
+						}
+
+						string label = Lib.EllipsisMiddle(included.ExperimentTitle, 28);
+						string value = Lib.BuildString(Experiment.ScienceValue(included), " ", included.PercentCollectedTotal.ToString("P0"));
+						if (offline)
+						{
+							label = Stale(label);
+							value = Stale(value);
+						}
+
+						p.AddContent(label, value, included.FullTitle);
+						p.SetLeftIcon(included.ExpInfo.SampleMass > 0.0 ? Textures.sample_scicolor : Textures.file_scicolor, included.FullTitle);
+					}
+				}
 			}
 			// script editor
 			else

@@ -471,6 +471,7 @@ namespace KERBALISM
 		public static ParamString UI_scriptvessel = new ParamString("UI_scriptvessel"); // "Script called on vessel <<1>>"
 		public static string DevManager_VESSELDEVICES = GetLoc("DevManager_VESSELDEVICES"); // "VESSEL DEVICES"
 		public static string DevManager_MODULEDEVICES = GetLoc("DevManager_MODULEDEVICES"); // "MODULE DEVICES"
+		public static string DevManager_INCLUDEDEXPERIMENTS = GetLoc("DevManager_INCLUDEDEXPERIMENTS"); // "INCLUDED EXPERIMENTS"
 		public static string DevManager_nodevices = GetLoc("DevManager_nodevices"); // "no devices"
 
 		public static string DevManager_TabManual = GetLoc("DevManager_TabManual"); // "<i>Control vessel components directly</i>"

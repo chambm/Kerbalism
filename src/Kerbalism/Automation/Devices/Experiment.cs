@@ -102,6 +102,8 @@ namespace KERBALISM
 
 		public override DeviceIcon Icon => icon;
 
+		public override SubjectData ScienceSubject => module.Subject;
+
 		public override void Ctrl(bool value)
 		{
 			if (value != module.Running) Toggle();
@@ -227,6 +229,8 @@ namespace KERBALISM
 		}
 
 		public override DeviceIcon Icon => icon;
+
+		public override SubjectData ScienceSubject => subject;
 
 		public override void Ctrl(bool value)
 		{
